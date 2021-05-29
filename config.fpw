@@ -1,0 +1,18 @@
+SET ESCAPE ON
+SET OPTIMIZE ON
+SET REFRESH 0,0
+SET SYSMENU TO DEFAULT
+SET TALK OFF
+SET VIEW OFF
+SET DEVELOPMENT OFF
+SET RESOURCE OFF
+SET DEBUG OFF
+SET DOHISTORY OFF
+
+SET RESOURCE OFF
+
+SET RESOURCE TO
+
+DEFAULT = "\aplics\vfp9\Balada"
+PATH = "\aplics\vfp9\Balada;\aplics\vfp9\Balada\classes;\aplics\vfp9\Balada\dados;\aplics\vfp9\Balada\forms;\aplics\vfp9\Balada\menus;\aplics\vfp9\Balada\prgs;\aplics\vfp9\Balada\rpts;"
+command = do "\aplics\vfp9\Balada\carrega.prg"

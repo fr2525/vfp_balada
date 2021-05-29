@@ -1,0 +1,320 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="GENERATOR" content="Microsoft FrontPage Express 2.0">
+<title>Printing in text mode</title>
+</head>
+
+<body bgcolor="#FFFFFF">
+
+<h1>Printing in text mode - By Hilmar Zonneveld</h1>
+
+<h2>Introduction</h2>
+
+<p>A frequent requirement for reports is to print in text-mode,
+for fast printing.</p>
+
+<p>This can be done with report ... ASCII, but since I found that
+there were some problems, I preferred to create text files with
+&quot;?&quot; and &quot;??&quot; (many programmers prefer &quot;@...say&quot;
+instead), and send printer codes + the text file to the printer.</p>
+
+<p>Eventually, I ended up creating a class that emulated most of
+the aspects of the VFP report writer, which I include here.</p>
+
+<h2>Features</h2>
+
+<ul>
+    <li>Because it is class-based, sub-classing can be used.</li>
+    <li>The programmer can control virtually any aspect of the
+        printing process himself/herself. </li>
+    <li>Page headers.</li>
+    <li>Unlimited grouping levels.</li>
+    <li>Multi-column.</li>
+    <li>Option to export to Excel (97 or later).</li>
+    <li>Preview opens with default browser or default text editor.</li>
+    <li>And, of course, fast printing in text mode (sample
+        includes constants for standard Epson dot-matrix printers
+        only).</li>
+</ul>
+
+<h2>Sample</h2>
+
+<p>Take a look at the sample report included. This sample
+includes several aspects of the report generator.</p>
+
+<p>Open the project (modify project TextReport) and run program
+main.prg, or run it directly (do main.prg).</p>
+
+<h2>Creating a new report</h2>
+
+<p>Typical steps include:</p>
+
+<ul>
+    <li>Create a class based on cTextReport. </li>
+    <li>In method Init(), accept optional parameters and copy
+        them to class properties (which you must create, too).
+        These parameters will typically restrict the range of
+        records printed (for instance, for the invoices example,
+        a date range, or invoices for a specific client).</li>
+    <li>In method .Select(), set up the tables for the report.
+        Typically, you may want to include a single, or several,
+        SQL - SELECT commands here. </li>
+    <li>In method .Detail(), output information for a single
+        record. For all output, use methods .PrintLine() (wrapper
+        for &quot;?&quot;) and .Print() (wrapper for &quot;??&quot;).
+        Don't use ? and ?? directly, here or otherwise - the
+        wrapper methods do all kinds of additional processing,
+        like outputting to Excel if the option is selected, and
+        incrementing row, column and page counters. </li>
+    <li>Put commands to print page headers either into method .PageHeader()
+        or into method .GroupHeader() (group headers are re-printed
+        on each page). </li>
+    <li>For group headers and foothers: 1) Define the group
+        headers in method .Init(), by assigning to the array
+        property .aBreakExpr(). 2) Use methods .GroupHeader() and
+        .GroupFooter() to do the actual output. If you want a
+        page break, include a call to This.NewPage().</li>
+    <li>For group totals, you have to accumulate the totals in
+        method .Detail(), and reset variables in method .ResetVariables().
+        I suggest using array property .aTotal for this purpose.
+        Use as many rows as you need group levels.</li>
+</ul>
+
+<h2>Components of the reporting system</h2>
+
+<ul>
+    <li>Main.prg, form ReportInvoice, class cInvoice, database
+        and table files: used for sample only. Please note that
+        some global variables have to be declared in your main
+        application. </li>
+    <li>TextReport.h: Defines some important constants.
+        Especially important are the printer codes. Constants
+        that start with &quot;TC&quot; are &quot;temporary codes&quot;,
+        which are later either removed (for preview) or changed
+        to printer codes (for printing - changed to codes that
+        start with &quot;PC&quot;). </li>
+    <li>Class cTextReport: This is the heart of the reporting
+        system. See &quot;properties and methods&quot;, below. </li>
+    <li>Class cTimerTempFile: The text preview is sent to a
+        temporary file, which is erased after a specified time,
+        or when the application closes (whichever comes first),
+        with this timer. </li>
+    <li>Classes cMyMeter, cMyMeterDlg: Shows progress of
+        preparing report. Statements in Select() are not included
+        - only the progress in the main loop. </li>
+    <li>Class cMyExcel: A primitive interface with Excel. This
+        class doesn't currently do sophisticated error-checking. </li>
+    <li>MyFunctions.prg - library that includes the following
+        functions:<ul>
+            <li>AddTempFileTimer(): Add a timer (to delete a temp
+                file later), to an array of timers. </li>
+            <li>ConvertToChar(): convert expressions of almost
+                any other type to character. </li>
+            <li>PrintTextFile(): While class cTextReport creates
+                the text file, this function does the actual
+                output of the (previously created) text file, to
+                the default text editor, the default browser, or
+                an Epson printer (output to Excel is done
+                directly from cTextReport). </li>
+            <li>RunDoc(): Open any document with its default
+                application. Adapted from a FAQ, posted by Gérald
+                Santerre on the Universal Thread. </li>
+            <li>TempFileName(): return a temporary file name plus
+                path. The path is c:\windows\temp, or equivalent.
+            </li>
+            <li>TextOutput(): Prepares output to specified file. </li>
+            <li>UserConfirm(): A quick dialog where the user can
+                select &quot;Yes&quot; or &quot;No&quot;. </li>
+            <li>User_Interrupt(): Returns .T. if the user presses
+                a specified key. Used for interrupting a process
+                (the function is repeatedly checked within a loop).</li>
+        </ul>
+    </li>
+</ul>
+
+<h2>Properties and methods of class cTextReport</h2>
+
+<p>(Some properties have not been documented.)</p>
+
+<ul>
+    <li>Method Init(): Some important properties have to be set
+        here. See sample report.</li>
+    <li>Method About(): use for comments. </li>
+    <li>Property aBreakExpr: Place the properties for the break
+        expressions here. </li>
+    <li>Property aEvalBreakExpr: Internal use. The values in
+        aBreakExpr are evaluated and placed into this array
+        property, to check whether a break is needed (and call
+        methods GroupHeader() and GroupFooter()). </li>
+    <li>Property aRecordCounter: Counts how many records have
+        been processed in every break level. Useful to place
+        certain text only for first record in a group, or to
+        print &quot;Continued...&quot; when a group continues on
+        the next page (see method &quot;Continued&quot;). </li>
+    <li>Property aTempColumns: Internal use. Temporarily saves
+        output, when using more than one columns. </li>
+    <li>Property aTotal: can be used by the programmer to
+        accumulate totals. </li>
+    <li>Property cLine: A horizontal line, for visually dividing
+        the report. </li>
+    <li>Method Continued(): Prints a comment when a group
+        continues on the next page. This is not automatically; it
+        must be invoked by the programmer. </li>
+    <li>Property cPaperMessage: Stores a message to inform user
+        what paper to use.</li>
+    <li>Property cPrinterCodes: Stores printer codes, that are
+        sent to the printer before the actual text. </li>
+    <li>Property cReportName: Descriptive comment, that the user
+        will see in several places. </li>
+    <li>Property cTempFile: Internal use. Stores the name of a
+        temporary (unique) filename, where the report will be
+        sent. </li>
+    <li>Method Detail(): Place commands here to output
+        information for each record. </li>
+    <li>Methods GroupFooter() and GroupHeader(): Printed when
+        group expression changes. The class automatically passes
+        the break level as a parameter; this can be used in a DO
+        CASE. </li>
+    <li>Property lAddFinalPageBreak: If true, the report class
+        will add a pagebreak at the end of the report. Needs to
+        be set to .F. if method GroupFooter() adds a page break. </li>
+    <li>Property lIsExcel: This will be True if actually
+        exporting to Excel. Used for conditional commands. </li>
+    <li>Property nBreakLevels: Number of break levels. Set
+        automatically. </li>
+    <li>Method MainLoop(): This is the central method, that
+        coordinates most other methods: it runs method Detail()
+        for every record, checks break expressions, runs
+        GroupHeader() and GroupFooter() as appropriate, etc.
+        Usually, the programmer should not overwrite this method,
+        but this may be done for some very specific requirements.
+    </li>
+    <li>Method NewPage(): Starts a new page. You should not issue
+        .Print(chr(12)) directly, since this method will also
+        update the page counter. </li>
+    <li>Properties nRow, nCol: Used mainly for output to Excel,
+        to store current row and column position. </li>
+    <li>Property nColumnCount: Used to print multiple columns. </li>
+    <li>Properties nColumnPos, nLineNumber, nPageNumber: counters
+        for current column and row position, and for the current
+        page number. </li>
+    <li>Methods PageFooter() and PageHeader(): Printed once at
+        the bottom / at the top of each page. </li>
+    <li>Method Print(): This is a wrapper for the &quot;??&quot;
+        command. The &quot;??&quot; command should not be used
+        directly. </li>
+    <li>Method PrintLine(): This is a wrapper for the &quot;?&quot;
+        command. The &quot;?&quot; command should not be used
+        directly. </li>
+    <li>Methods ReportFooter() and ReportHeader(): Printed once
+        only, at the bottom / at the top of each report. </li>
+    <li>Method ResetVariables(): Use this to reset variables used
+        for subtotals. The class will automatically pass the
+        appropriate break level, which can be used in a DO CASE. </li>
+    <li>Method Select(): Prepare your data here; often, you would
+        place SELECT - SQL statements here.</li>
+</ul>
+
+<h2>Public variables</h2>
+
+<p>The following variables need to be declared as public; I do
+this in my main program.</p>
+
+<ul>
+    <li>gu_UseText: format to use for preview. True for default
+        text editor, False for default browser. </li>
+    <li>gnFromPage, gnToPage: Output only for the specified page
+        range. </li>
+    <li>gnNumCopies: Print several copies. Doesn't affect preview,
+        or output to Excel. </li>
+    <li>gaTempFileName(): Array of timers, one for each temporary
+        file created. The temporary files will be deleted after a
+        specified time.</li>
+</ul>
+
+<h2>Alternatives and improvements</h2>
+
+<p>Some of the following alternatives are simply that:
+alternatives. Others might be real improvements, but I don't
+currently want to do a major re-design of the reporting system.</p>
+
+<p>The text file can be generated in several alternative ways (the
+result can still be sent to preview / printer with function
+PrintTextFile()):</p>
+
+<ul>
+    <li>As mentioned previously, some programmers prefer to use
+        &quot;@...say&quot; instead of &quot;? / ??&quot; to
+        generate text reports.</li>
+    <li>A text report can also be created with the VFP report
+        writer. Use clause &quot;... TO FileName ASCII. There are
+        two related problems here: 1) The developer has no clue,
+        until the report is actually run, whether, for instance,
+        one or two spaces will be inserted between two
+        expressions, or to how many spaces an expression will be
+        padded. 2) If the developer needs to make the report
+        wider (perhaps for using wider paper, or more CPI), and
+        changes the value of _ASCIICOLS, each and every
+        expression will use up more space.</li>
+    <li>The developer can also create the report in FoxPro for
+        DOS (if available), and run the report directly from VFP
+        (without importing the report first - all changes are
+        done in FoxPro for DOS). Note: I tried this successfully
+        in FoxPro/Win, but I don't know whether it still works in
+        VFP.</li>
+</ul>
+
+<p>For preview, there are other alternatives, too. Mainly, the
+developer can use the built-in MODIFY FILE instead of an external
+text editor. Note: Applying MODIFY FILE, unlike MODIFY COMMAND,
+won't use syntax coloring. I believe that it would also be
+appropriate to issue the command SET RESOURCE OFF; otherwise, the
+FOXUSER file will grow with every unique filename that is opened
+as text.</p>
+
+<p>Class cTextReport could, and actually should, be redesigned so
+it doesn't pass parameters, and load automatically, with Init();
+instead, the developer should open the class, pass parameters,
+and start the report, with separate commands. One advantage of
+this approach is that it would be easy to have default parameters.
+I thought about this too late, and if I do it now, it might break
+compatibility with my existing reports.</p>
+
+<p>For each report (or, often, for a group of related reports), I
+present the user with a dialog form. I use a class (not included),
+with the most common options (e.g., page range), from which the
+other report-option-forms are derived.</p>
+
+<h2>Other considerations for text printing</h2>
+
+<p>I select the default Windows printer with set(&quot;printer&quot;,2).</p>
+
+<p>The user can select another printer with the printer selection
+dialog (not included in the sample), with function GetPrinter().</p>
+
+<p>In ither case, the printer name should be copied to a variable;
+the actual printer selection is done with SET PRINTER TO NAME (VariableThatContainsPrinterName).</p>
+
+<p>The VFP command &quot;???&quot; sends output directly to the
+printer - it is the command used in function PrintTextFile(), to
+send both printer codes and the actual text to the printer. While
+I didn't have any trouble with this approach, some users
+apparently did. Some downloads on the Universal Thread are
+designed to correct these problems - the nature of which I am not
+sure about - but I didn't actually try them.</p>
+
+<p>Users should be given the option to print unidirectional (only
+from left-to-right). This greatly improves the quality of the
+output on old dot-matrix printers. It also makes the printing
+process somewhat slower. Use constant PC_UNIDIR for standard
+Epson dot-matrix printers.</p>
+
+<h2>Questions and Feedback</h2>
+
+<p>For questions or suggestions, please contact me at the
+UniversalThread (<a href="http://www.universalthread.com">www.universalthread.com</a>).</p>
+</body>
+</html>
